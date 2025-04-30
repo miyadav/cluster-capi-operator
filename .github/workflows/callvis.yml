@@ -1,0 +1,42 @@
+name: Go Call Graph
+
+on:
+  push:
+    branches: testgocallvis
+  pull_request:
+    branches: testgocallvis
+
+jobs:
+  callgraph:
+    name: Generate and Diff Call Graph
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Install go-callvis and Graphviz
+        run: |
+          go install github.com/ofabry/go-callvis@latest
+          sudo apt-get update && sudo apt-get install -y graphviz
+
+      - name: Make scripts executable
+        run: chmod +x generate-callvis.sh compare-callvis.sh
+
+      - name: Generate call graph
+        run: ./generate-callvis.sh
+
+      - name: Compare with baseline
+        run: ./compare-callvis.sh
+
+      - name: Save artifacts locally
+        run: |
+          mkdir -p artifacts
+          cp callvisdocs/callvis/callgraph.svg artifacts/
+          cp callvisdocs/callvis/diff.txt artifacts/
+
