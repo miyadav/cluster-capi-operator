@@ -1,0 +1,39 @@
+name: Reachability & Dead-code CI
+
+# === TRIGGERS ===
+# This tells GitHub Actions to run on every push to main, and on every PR targeting main.
+on:
+  push:
+    branches:
+      - diagraph2
+  pull_request:
+    branches:
+      - diagraph2
+jobs:
+  reachability-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Go tools
+        run: |
+          go install golang.org/x/tools/cmd/callgraph@latest
+          go install golang.org/x/tools/cmd/digraph@latest
+      - name: Add Go bin to PATH
+        # on GitHub Actions, $HOME/go/bin is where `go install` puts binaries by default
+        run: echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Generate callgraph
+        run: |
+          callgraph -algo=rta -format=digraph ./... > callgraph.txt
+
+      - name: Find unreachable funcs
+        run: |
+          digraph nodes < callgraph.txt | sort > all.txt
+          digraph forward main.main < callgraph.txt | sort > reach.txt
+          comm -23 all.txt reach.txt > dead.txt || true
+          if [ -s dead.txt ]; then
+            echo "Unreachable code detected:" && cat dead.txt
+            exit 1
+          fi
+
