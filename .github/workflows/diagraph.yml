@@ -1,0 +1,56 @@
+name: Generate Diagraph Call Graph
+
+on:
+  push:
+    branches: diagraph
+  workflow_dispatch:
+
+jobs:
+  generate-diagraph:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+
+    - name: Install Diagraph
+      run: go install golang.org/x/tools/cmd/digraph@latest
+
+    - name: Install Graphviz
+      run: sudo apt-get update && sudo apt-get install -y graphviz
+
+    - name: Generate call graph with Diagraph
+      run: |
+        OUTPUT_DIR=callvisdocs/diagraph
+        DOT_FILE=$OUTPUT_DIR/callgraph.dot
+        SVG_FILE=$OUTPUT_DIR/callgraph.svg
+
+        mkdir -p "$OUTPUT_DIR"
+        echo "Generating diagraph call graph from ./cmd/machine-api-migration..."
+
+        # Adjust -dir as needed
+        diagraph -dir ./cmd/machine-api-migration -no-vendor > "$DOT_FILE"
+        dot -Tsvg "$DOT_FILE" -o "$SVG_FILE"
+
+        echo "DOT:  $DOT_FILE"
+        echo "SVG:  $SVG_FILE"
+
+    - name: Save generated files as artifacts (locally)
+      run: |
+        ARTIFACT_DIR=callvisdocs/artifacts
+        mkdir -p "$ARTIFACT_DIR"
+
+        # Move generated files to artifact directory
+        mv callvisdocs/diagraph/*.dot "$ARTIFACT_DIR/"
+        mv callvisdocs/diagraph/*.svg "$ARTIFACT_DIR/"
+
+        # Zip them up as if we were uploading artifacts
+        ZIP_FILE="$ARTIFACT_DIR/diagraph_artifacts.zip"
+        zip -r "$ZIP_FILE" "$ARTIFACT_DIR"
+
+        echo "Artifact saved at: $ZIP_FILE"
